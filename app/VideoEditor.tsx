@@ -1,14 +1,18 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { Video } from "expo-av";
+import { useGlobalSearchParams } from "expo-router";
+import * as FileSystem from "expo-file-system";
 
 interface VideoEditorProps {
   route: any;
   navigation: any;
 }
 
-const VideoEditor: React.FC<VideoEditorProps> = ({ route, navigation }) => {
-  const { videoUri } = route.params;
+const VideoEditor: React.FC<VideoEditorProps> = () => {
+  const { videoUri }: { videoUri: string } = useGlobalSearchParams();
+  const newUri = `${FileSystem.documentDirectory}video.mp4`;
+
   const videoRef = useRef(null); // Create a ref for the video player
   const [isPlaying, setIsPlaying] = useState(true); // Set initial state to true for default play
   const [videoStatus, setVideoStatus] = useState<any>(null); // To track the video status
@@ -16,6 +20,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({ route, navigation }) => {
   // Play/Pause button handler
   const togglePlayPause = () => {
     if (isPlaying) {
+      console.log(videoUri);
       //@ts-ignore
       videoRef.current.pauseAsync(); // Pause the video
     } else {
@@ -32,11 +37,24 @@ const VideoEditor: React.FC<VideoEditorProps> = ({ route, navigation }) => {
     return `${minutes}:${seconds < 10 ? "0" + seconds : seconds}`;
   };
 
+  const convert = async () => {
+    await FileSystem.copyAsync({
+      from: videoUri,
+      to: newUri,
+    });
+  };
+
+  useEffect(() => {
+    convert();
+  }, []);
+
   return (
     <View style={styles.container}>
       <Video
         ref={videoRef}
-        source={{ uri: videoUri }} // Set the video source from the passed URI
+        source={{
+          uri: newUri,
+        }}
         style={styles.video}
         useNativeControls
         //@ts-ignore
@@ -44,6 +62,8 @@ const VideoEditor: React.FC<VideoEditorProps> = ({ route, navigation }) => {
         shouldPlay={true} // Automatically play the video
         isMuted={true} // Mute the video by default
         onPlaybackStatusUpdate={(status) => setVideoStatus(status)}
+        onLoad={() => console.log("Video loaded")}
+        // onError={(error) => console.error("Video error:", error)}
       />
 
       {/* Display video length */}

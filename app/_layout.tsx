@@ -102,10 +102,10 @@ export default function RootLayout() {
           name={session ? "index" : "login"}
           options={{ headerShown: false }}
         />
-        <Stack.Screen name="videoeditor" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="VideoEditor" options={{ headerShown: false }} />
         <Stack.Screen name="Register" options={{ headerShown: false }} />
         <Stack.Screen name="start" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

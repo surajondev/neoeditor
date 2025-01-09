@@ -11,7 +11,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker"; // Import ImagePicker
 import { useFonts } from "expo-font";
 import { supabase } from "../lib/supabase";
-import { router, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 
 // Define the types for navigation parameters
 type RootStackParamList = {
@@ -31,7 +31,6 @@ export default function HomeActivity() {
   if (!fontsLoaded) {
     return null;
   }
-
   const router = useRouter();
   const navigation = useNavigation<NavigationProp>(); // Use typed navigation
 
@@ -43,7 +42,7 @@ export default function HomeActivity() {
       console.error("Sign out error:", error);
     } else {
       Alert.alert("Signed Out", "You have successfully signed out.");
-      router.push("../app/index");
+      router.push("/");
     }
   };
 
@@ -66,8 +65,9 @@ export default function HomeActivity() {
       Alert.alert("Selection canceled");
     } else {
       const videoUri = result.assets?.[0].uri;
+      console.log(videoUri);
       if (videoUri) {
-        navigation.navigate("VideoEditor", { videoUri });
+        router.push(`/VideoEditor?videoUri=${encodeURIComponent(videoUri)}`);
       }
     }
   };

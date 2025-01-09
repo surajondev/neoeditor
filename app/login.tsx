@@ -11,6 +11,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { Button, Input } from "@rneui/themed";
 import { useNavigation } from "@react-navigation/native";
+import { FontAwesome } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
 import { useRouter } from "expo-router";
 
@@ -19,6 +20,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
+
   const [fontsLoaded] = useFonts({
     MedulaOne: require("../assets/fonts/MedulaOne-Regular.ttf"),
   });
@@ -54,11 +56,10 @@ export default function Login() {
           <Text style={styles.logo}>WESHOT</Text>
           <View style={[styles.verticallySpaced, styles.mt20]}>
             <Input
-              label="Email"
               leftIcon={{ type: "font-awesome", name: "envelope" }}
               onChangeText={(text) => setEmail(text)}
               value={email}
-              placeholder="email@address.com"
+              placeholder="Email"
               autoCapitalize={"none"}
               inputContainerStyle={styles.inputContainer}
               inputStyle={styles.input}
@@ -66,7 +67,6 @@ export default function Login() {
           </View>
           <View style={styles.verticallySpaced}>
             <Input
-              label="Password"
               leftIcon={{ type: "font-awesome", name: "lock" }}
               onChangeText={(text) => setPassword(text)}
               value={password}
