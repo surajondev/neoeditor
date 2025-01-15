@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   StyleSheet,
@@ -7,13 +7,17 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  TouchableOpacity,
+  StatusBar as RNStatusBar,
 } from "react-native";
 import { supabase } from "../lib/supabase";
-import { Button, Input } from "@rneui/themed";
+import Input from "../components/Input";
 import { useFonts } from "expo-font";
 import { router, useRouter } from "expo-router";
-import { FontAwesome } from "@expo/vector-icons";
-import input from "../components/input";
+import BackButton from "../components/BackButton";
+import Button from "../components/Button";
+import { Appearance } from "react-native";
+import { StatusBar } from "expo-status-bar";
 
 export default function Register() {
   const [fontsLoaded] = useFonts({
@@ -22,6 +26,11 @@ export default function Register() {
   if (!fontsLoaded) {
     return null;
   }
+
+  useEffect(() => {
+    // Force light mode across platforms
+    Appearance.setColorScheme("light");
+  }, []);
 
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -60,57 +69,56 @@ export default function Register() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "android" ? "padding" : "height"}
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={styles.container}>
+          <BackButton goBack={() => router.push("/")} />
           <Text style={styles.logo}>WESHOT</Text>
           <Text style={styles.wlc}>Let's</Text>
           <Text style={styles.wlc}>Get Started</Text>
+          <TouchableOpacity onPress={() => router.push("/login")}>
+            <Text style={styles.footertext}>
+              Already have an account!{" "}
+              <Text style={{ color: "#00c26f", fontWeight: "bold" }}>
+                Login
+              </Text>
+            </Text>
+          </TouchableOpacity>
           <Text style={styles.info}>
-            Please Fill the details to create an account
+            Please fill the details to create an account
           </Text>
           <View style={styles.verticallySpaced}>
             <Input
               leftIcon={{ type: "font-awesome", name: "user" }}
-              onChangeText={(text) => setUsername(text)}
+              onChangeText={(text: string) => setUsername(text)}
               value={username}
+              type="text"
               placeholder="Username"
-              autoCapitalize={"none"}
-              inputContainerStyle={styles.inputContainer}
-              inputStyle={styles.input}
+              secureTextEntry={false}
+              description={""}
             />
-          </View>
-          <View style={styles.verticallySpaced}>
             <Input
               leftIcon={{ type: "font-awesome", name: "envelope" }}
-              onChangeText={(text) => setEmail(text)}
+              onChangeText={(text: string) => setEmail(text)}
               value={email}
-              placeholder="email@address.com"
-              autoCapitalize={"none"}
-              inputContainerStyle={styles.inputContainer}
-              inputStyle={styles.input}
+              type="email"
+              placeholder="Email"
+              secureTextEntry={true}
+              description={""}
             />
-          </View>
-          <View style={styles.verticallySpaced}>
             <Input
               leftIcon={{ type: "font-awesome", name: "lock" }}
-              onChangeText={(text) => setPassword(text)}
+              onChangeText={(text: string) => setPassword(text)}
               value={password}
+              type={password}
               secureTextEntry={true}
               placeholder="Password"
-              autoCapitalize={"none"}
-              inputContainerStyle={styles.inputContainer}
-              inputStyle={styles.input}
+              description={""}
             />
           </View>
           <View style={styles.verticallySpaced}>
-            <Button
-              title="Sign in"
-              disabled={loading}
-              onPress={RegisterAuth}
-              buttonStyle={styles.button}
-            />
+            <Button title="Sign in" disabled={loading} onPress={RegisterAuth} />
           </View>
         </View>
       </ScrollView>
@@ -129,9 +137,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "inter",
     fontWeight: "medium",
-    marginBottom: 10,
+    marginBottom: 15,
     marginLeft: 10,
-    marginTop: 20,
+    marginTop: 15,
   },
   wlc: {
     fontSize: 30,
@@ -141,50 +149,30 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   verticallySpaced: {
-    paddingVertical: 7,
-    alignSelf: "stretch",
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#7c7c7c",
-    borderRadius: 22,
-    borderCurve: "continuous",
-    paddingHorizontal: 18,
-    gap: 12,
-  },
-  input: {
-    backgroundColor: "#f1f1f1",
-    padding: 5,
-  },
-  button: {
-    backgroundColor: "#00c26e",
-    fontSize: 20,
-    fontWeight: "bold",
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    height: 61,
-    shadowColor: "black",
-    textAlign: "center",
-    shadowOpacity: 0.8,
-    elevation: 6,
-    shadowRadius: 15,
-    shadowOffset: { width: 56, height: 13 },
-    borderWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    marginBottom: 30,
+    gap: 20,
   },
   logo: {
-    fontSize: 68,
+    fontSize: 50,
     color: "black",
     textAlign: "center",
     fontFamily: "MedulaOne",
     alignSelf: "center",
-    marginBottom: 100,
+    marginBottom: 50,
     textShadowColor: "#000",
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 5,
+  },
+  footertext: {
+    position: "absolute",
+    top: 400, // Ensures it's at the bottom of the screen
+    left: 0,
+    right: 0, // Centers the text horizontally
+    fontFamily: "inter",
+    fontSize: 16,
+    textAlign: "center", // Centers text
+    color: "black",
   },
 });

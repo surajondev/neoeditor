@@ -1,40 +1,14 @@
 import React from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  Alert,
-  Image,
-} from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import * as ImagePicker from "expo-image-picker"; // Import ImagePicker
-import { useFonts } from "expo-font";
+import { StyleSheet, Text, View, TouchableOpacity, Alert } from "react-native";
+import * as MediaLibrary from "expo-media-library";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "expo-router";
 
-// Define the types for navigation parameters
-type RootStackParamList = {
-  VideoEditor: { videoUri: string };
-  ProjectManager: { videoUris: string[] };
-  Home: undefined; // Add Home to navigation types
-};
-
-// Use the navigation type for navigation hooks
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-
 export default function HomeActivity() {
-  const [fontsLoaded] = useFonts({
-    MedulaOne: require("../assets/fonts/MedulaOne-Regular.ttf"),
-  });
-  if (!fontsLoaded) {
-    return null;
-  }
   const router = useRouter();
-  const navigation = useNavigation<NavigationProp>(); // Use typed navigation
 
-  // Function to sign out the user
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -46,53 +20,126 @@ export default function HomeActivity() {
     }
   };
 
-  // Function to select a single video
-  const selectSingleVideo = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (status !== "granted") {
-      Alert.alert("Permission Denied", "We need access to your media library.");
-      return;
+  const ensureDirectoryExists = async () => {
+    const videoDir = `${FileSystem.documentDirectory}videos/`;
+    const dirInfo = await FileSystem.getInfoAsync(videoDir);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(videoDir, { intermediates: true });
     }
+    return videoDir;
+  };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: true,
-      selectionLimit: 1,
-    });
-
-    if (result.canceled) {
-      Alert.alert("Selection canceled");
-    } else {
-      const videoUri = result.assets?.[0].uri;
-      console.log(videoUri);
-      if (videoUri) {
-        router.push(`/VideoEditor?videoUri=${encodeURIComponent(videoUri)}`);
+  const processVideo = async (uri: string) => {
+    try {
+      // Get video file info
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (!fileInfo.exists) {
+        throw new Error("Video file not found");
       }
+
+      // Create videos directory if it doesn't exist
+      const videoDir = await ensureDirectoryExists();
+
+      // Generate a unique filename using timestamp
+      const timestamp = new Date().getTime();
+      const extension = uri.split(".").pop();
+      const fileName = `video_${timestamp}.${extension}`;
+      const destinationUri = `${videoDir}${fileName}`;
+
+      // Copy the video file to our app's document directory
+      await FileSystem.copyAsync({
+        from: uri,
+        to: destinationUri,
+      });
+
+      // Verify the copied file exists
+      const newFileInfo = await FileSystem.getInfoAsync(destinationUri);
+      if (!newFileInfo.exists) {
+        throw new Error("Failed to copy video file");
+      }
+
+      return destinationUri;
+    } catch (error) {
+      console.error("Video processing error:", error);
+      throw error;
+    }
+  };
+
+  const selectSingleVideo = async () => {
+    try {
+      // Request permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "We need access to your media library."
+        );
+        return;
+      }
+
+      // Launch picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        quality: 1,
+        allowsEditing: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const videoUri = result.assets[0].uri;
+        const processedUri = await processVideo(videoUri);
+
+        // Navigate with the processed URI
+        router.push({
+          pathname: "/VideoEditor",
+          params: { videoUri: processedUri },
+        });
+      }
+    } catch (error) {
+      console.error("Video selection error:", error);
+      Alert.alert("Error", "Failed to process the video. Please try again.");
     }
   };
 
   const selectMultipleVideos = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      // Request permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "We need access to your media library."
+        );
+        return;
+      }
 
-    if (status !== "granted") {
-      Alert.alert("Permission Denied", "We need access to your media library.");
-      return;
-    }
+      // Launch picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        quality: 1,
+        allowsMultipleSelection: true,
+      });
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: false,
-      allowsMultipleSelection: true,
-    });
+      if (!result.canceled && result.assets) {
+        if (result.assets.length !== 2) {
+          Alert.alert("Selection Error", "Please select exactly two videos.");
+          return;
+        }
 
-    if (result.canceled) {
-      Alert.alert("Selection canceled");
-    } else if (result.assets && result.assets.length === 2) {
-      const videoUris = result.assets.map((asset) => asset.uri);
-      navigation.navigate("ProjectManager", { videoUris });
-    } else {
-      Alert.alert("Error", "Please select exactly two videos.");
+        // Process both videos
+        const processedUris = await Promise.all(
+          result.assets.map((asset) => processVideo(asset.uri))
+        );
+
+        // Navigate with processed URIs
+        router.push({
+          // @ts-ignore
+          pathname: "/ProjectManager",
+          params: { videoUris: JSON.stringify(processedUris) },
+        });
+      }
+    } catch (error) {
+      console.error("Video selection error:", error);
+      Alert.alert("Error", "Failed to process the videos. Please try again.");
     }
   };
 
@@ -100,7 +147,7 @@ export default function HomeActivity() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.appName}>WESHOT</Text>
-        <TouchableOpacity style={styles.videoButton} onPress={signOut}>
+        <TouchableOpacity style={styles.logoutButton} onPress={signOut}>
           <Text style={[styles.buttonText, styles.videoButtonText]}>
             Logout
           </Text>
@@ -132,25 +179,27 @@ const styles = StyleSheet.create({
     paddingTop: 32,
   },
   header: {
-    flexDirection: "row", // Arrange Text and Icon in a row
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingHorizontal: 20,
     marginBottom: 150,
   },
   appName: {
     fontSize: 40,
     color: "#000000",
-    fontFamily: "MedulaOne", // Ensure you've added the font correctly
+    fontFamily: "MedulaOne",
     textShadowColor: "#000",
     textShadowRadius: 5,
     marginTop: 20,
-    marginRight: 200, // Space between text and icon
   },
-  icon: {
-    borderWidth: 3, // Border width around the icon
-    borderColor: "#000", // Border color
-    borderRadius: 100, // Makes it circular
+  logoutButton: {
+    backgroundColor: "#00629f",
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
     marginTop: 20,
-    padding: 10, // Space inside the border around the icon
   },
   selectFileText: {
     fontSize: 34,
@@ -158,14 +207,14 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   videoButton: {
-    backgroundColor: "#00629f", // Replace with your button background color
+    backgroundColor: "#00629f",
     paddingVertical: 10,
     paddingHorizontal: 30,
     borderRadius: 20,
     marginTop: 50,
   },
   projectButton: {
-    backgroundColor: "#d9e2ff", // Replace with your button background color
+    backgroundColor: "#d9e2ff",
     paddingVertical: 10,
     paddingHorizontal: 30,
     borderRadius: 20,

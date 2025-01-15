@@ -1,87 +1,74 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
-import { Video } from "expo-av";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { useGlobalSearchParams } from "expo-router";
 import * as FileSystem from "expo-file-system";
 
-interface VideoEditorProps {
-  route: any;
-  navigation: any;
-}
-
-const VideoEditor: React.FC<VideoEditorProps> = () => {
+const VideoEditor: React.FC = () => {
   const { videoUri }: { videoUri: string } = useGlobalSearchParams();
-  const newUri = `${FileSystem.documentDirectory}video.mp4`;
 
-  const videoRef = useRef(null); // Create a ref for the video player
-  const [isPlaying, setIsPlaying] = useState(true); // Set initial state to true for default play
-  const [videoStatus, setVideoStatus] = useState<any>(null); // To track the video status
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [duration, setDuration] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Play/Pause button handler
+  // Directly use the videoUri passed from ImagePicker or any other source
+  const player = useVideoPlayer(videoUri, (player) => {
+    player.loop = false;
+    player.play();
+  });
+
+  // Add event listener for 'loadedmetadata'
+  useEffect(() => {
+    //@ts-ignore
+    const subscription = player.addListener("loadedmetadata", () => {
+      setDuration(player.duration);
+    });
+    setLoading(false);
+
+    return () => {
+      subscription.remove(); // Clean up listener
+    };
+  }, [player]);
+
   const togglePlayPause = () => {
     if (isPlaying) {
-      console.log(videoUri);
-      //@ts-ignore
-      videoRef.current.pauseAsync(); // Pause the video
+      player.pause();
     } else {
-      //@ts-ignore
-      videoRef.current.playAsync(); // Play the video
+      player.play();
     }
     setIsPlaying(!isPlaying);
   };
 
-  // Format video length (seconds to mm:ss)
   const formatDuration = (duration: number) => {
     const minutes = Math.floor(duration / 60);
     const seconds = Math.floor(duration % 60);
     return `${minutes}:${seconds < 10 ? "0" + seconds : seconds}`;
   };
 
-  const convert = async () => {
-    await FileSystem.copyAsync({
-      from: videoUri,
-      to: newUri,
-    });
-  };
-
-  useEffect(() => {
-    convert();
-  }, []);
-
+  // No need for a file conversion or copy step now
   return (
     <View style={styles.container}>
-      <Video
-        ref={videoRef}
-        source={{
-          uri: newUri,
-        }}
+      <VideoView
+        player={player}
         style={styles.video}
-        useNativeControls
         //@ts-ignore
         resizeMode="contain"
-        shouldPlay={true} // Automatically play the video
-        isMuted={true} // Mute the video by default
-        onPlaybackStatusUpdate={(status) => setVideoStatus(status)}
-        onLoad={() => console.log("Video loaded")}
-        // onError={(error) => console.error("Video error:", error)}
+        useNativeControls
       />
-
-      {/* Display video length */}
       <Text style={styles.lengthText}>
-        {videoStatus?.durationMillis
-          ? `Duration: ${formatDuration(videoStatus.durationMillis / 1000)}`
-          : "Loading..."}
+        {loading
+          ? "Loading..."
+          : duration !== null
+          ? `Duration: ${formatDuration(duration)}`
+          : "Duration not available"}
       </Text>
-
-      {/* Play/Pause button */}
       <TouchableOpacity
         style={styles.playPauseButton}
         onPress={togglePlayPause}
+        disabled={loading}
       >
         <Text style={styles.buttonText}>{isPlaying ? "Pause" : "Play"}</Text>
       </TouchableOpacity>
-
-      {/* Example of editing options - Implement trim, rotate, or other features */}
       <TouchableOpacity
         style={styles.editButton}
         onPress={() =>
